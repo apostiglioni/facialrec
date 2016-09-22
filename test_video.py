@@ -39,6 +39,16 @@ def show_frame(frame):
     # show the frame
     cv2.imshow("Frame", frame)
 
+def process(pool, frame):
+    definitions = ['classifiers/haarcascade_frontalface_default.xml', 'classifiers/haarcascade_profileface.xml', 'classifiers/lbpcascade_profileface.xml']
+    promises = []
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    promises = map(lambda definition: pool.apply_async(find_faces, (gray, definition)), definitions)
+    faces_list = map(lambda response: response.get(), promises)
+    log(faces_list)
+    for faces in faces_list:
+        highlight_faces(frame, faces)
+
 def run():
     # initialize the camera and grab a reference to the raw camera capture
     resolution = (320, 240)
@@ -51,19 +61,12 @@ def run():
     # allow the camera to warmup
     time.sleep(0.1)
 
-    definitions = ['classifiers/haarcascade_frontalface_default.xml', 'classifiers/haarcascade_profileface.xml', 'classifiers/lbpcascade_profileface.xml']
 
     pool = Pool(processes=cpu_count())
     for frame in capture(camera, rawCapture):
-        processes = []
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        processes = map(lambda definition: pool.apply_async(find_faces, (gray, definition)), definitions)
-        faces_list = map(lambda response: response.get(), processes)
-        log(faces_list)
-        for faces in faces_list:
-            highlight_faces(frame, faces)
-
+        process(pool, frame)
         show_frame(frame)
+
         key = cv2.waitKey(1) & 0xFF
 
         # clear the stream in preparation for the next frame
